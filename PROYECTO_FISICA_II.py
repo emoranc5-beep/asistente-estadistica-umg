@@ -29,12 +29,8 @@ else:
 if API_KEY_GEMINI:
     genai.configure(api_key=API_KEY_GEMINI)
 
-# SYSTEM PROMPT SIMPLE Y POSITIVO (SIN REGLAS NEGATIVAS QUE CONTAMINEN LA SALIDA)
-SYSTEM_PROMPT_UMG = (
-    "Eres el Asistente Virtual de Estadística de la Universidad Mariano Gálvez de Guatemala (UMG). "
-    "Responde siempre al estudiante en español de forma clara, directa, amable y didáctica, "
-    "explicando los conceptos de estadística paso a paso."
-)
+# SYSTEM PROMPT MINIMALISTA (PROMPT CORTO EVITA PENSAMIENTO EN VOZ ALTA)
+SYSTEM_PROMPT_UMG = "Eres el Asistente Virtual de Estadística de la UMG. Responde directamente en español al estudiante de forma clara y didáctica."
 
 MODELOS_RESPALDO = [
     "gemini-1.5-flash",
@@ -44,7 +40,7 @@ MODELOS_RESPALDO = [
 ]
 
 def obtener_lista_modelos():
-    """Obtiene una lista combinada de modelos de Gemini disponibles."""
+    """Obtiene la lista de modelos disponibles para la IA."""
     modelos_probar = []
     try:
         for m in genai.list_models():
@@ -60,32 +56,36 @@ def obtener_lista_modelos():
     return modelos_probar
 
 def sanear_respuesta_ia(texto):
-    """Elimina metatexto, borradores o etiquetas de verificación si la IA intenta mostrarlas."""
+    """Elimina al 100% cualquier borrador o metatexto en inglés previo a la respuesta."""
     if not texto:
         return ""
     
+    # 1. Si la IA imprime metatexto antes de responder, recortamos directamente desde ¡Hola! o Hola
+    match = re.search(r'(¡?Hola\b.*)', texto, re.DOTALL | re.IGNORECASE)
+    if match:
+        texto = match.group(1)
+        
+    # 2. Filtro secundario para eliminar líneas sueltas de metadatos si no hay saludo
     lineas = texto.split("\n")
     lineas_limpias = []
     
-    patrones_meta = [
-        "user question", "persona:", "constraints:", "check rule",
-        "draft 1", "draft 2", "draft 3", "greeting:", "definition:",
-        "types:", "example:", "spanish only", "self-correction"
+    patrones_basura = [
+        r'^\s*[-*]\s*(user|role|tone|language|context|constraints?|check|draft|definition|types|example|greeting|closing):',
+        r'^\s*(user asks|persona:|constraints:|check rule|draft \d|spanish only|self-correction)',
+        r'^\s*[-*]\s*ensure\b',
+        r'^\s*[-*]\s*use formatting\b'
     ]
     
     for linea in lineas:
         l_low = linea.lower().strip()
-        if any(p in l_low for p in patrones_meta):
-            # Si la línea tiene contenido útil tras la etiqueta (ej: "- Greeting: ¡Hola!"), extraemos solo el texto real
-            if ":" in linea and ("¡hola" in l_low or "hola" in l_low or "la moda" in l_low):
-                lineas_limpias.append(linea.split(":", 1)[1].strip())
+        if any(re.search(p, l_low) for p in patrones_basura):
             continue
         lineas_limpias.append(linea)
         
     return "\n".join(lineas_limpias).strip()
 
 # ---------------------------------------------------------
-# FUNCIONES DE IA CON FALLBACK Y SANITIZACIÓN
+# FUNCIONES DE IA CON FILTRADO ESTRICTO
 # ---------------------------------------------------------
 def generar_texto_con_fallback(contents):
     if not API_KEY_GEMINI:
@@ -97,7 +97,7 @@ def generar_texto_con_fallback(contents):
             model = genai.GenerativeModel(
                 nombre_modelo,
                 system_instruction=SYSTEM_PROMPT_UMG,
-                generation_config={"temperature": 0.2}
+                generation_config={"temperature": 0.1}
             )
             response = model.generate_content(contents)
             if response.text:
@@ -119,7 +119,7 @@ def generar_stream_con_fallback(contents):
             model = genai.GenerativeModel(
                 nombre_modelo,
                 system_instruction=SYSTEM_PROMPT_UMG,
-                generation_config={"temperature": 0.2}
+                generation_config={"temperature": 0.1}
             )
             response = model.generate_content(contents)
             if response.text:
@@ -132,7 +132,6 @@ def generar_stream_con_fallback(contents):
             continue
 
     yield f"⚠️ Error al conectar con Google Gemini: {ultimo_error}"
-
 # ---------------------------------------------------------
 # ESTILOS CSS PERSONALIZADOS (SIN BANNER SUPERIOR)
 # ---------------------------------------------------------
