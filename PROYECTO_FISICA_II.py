@@ -23,58 +23,78 @@ st.set_page_config(
 if "GEMINI_API_KEY" in st.secrets and st.secrets["GEMINI_API_KEY"]:
     API_KEY_GEMINI = st.secrets["GEMINI_API_KEY"]
 else:
-    API_KEY_GEMINI = "PEGA_AQUI_TU_API_KEY_LOCAL"  # Clave de respaldo para pruebas locales
+    API_KEY_GEMINI = ""
 
 if API_KEY_GEMINI:
     genai.configure(api_key=API_KEY_GEMINI)
 
-def obtener_modelo_activo():
-    """Detecta en tiempo real un modelo de Gemini habilitado en tu cuenta."""
+# Modelos estándar de respaldo ordenados por prioridad
+MODELOS_RESPALDO = [
+    "gemini-1.5-flash",
+    "gemini-1.5-pro",
+    "models/gemini-1.5-flash",
+    "models/gemini-1.5-pro"
+]
+
+def obtener_lista_modelos():
+    """Obtiene una lista combinada de modelos para probar."""
+    modelos_probar = []
     try:
-        modelos = list(genai.list_models())
-        for m in modelos:
+        for m in genai.list_models():
             if 'generateContent' in m.supported_generation_methods:
-                if 'flash' in m.name:
-                    return m.name
-        for m in modelos:
-            if 'generateContent' in m.supported_generation_methods:
-                return m.name
+                modelos_probar.append(m.name)
     except Exception:
         pass
-    return "models/gemini-1.5-flash"
+    
+    # Agregar respaldos asegurando que no haya duplicados
+    for m in MODELOS_RESPALDO:
+        if m not in modelos_probar:
+            modelos_probar.append(m)
+            
+    return modelos_probar
 
 # ---------------------------------------------------------
-# FUNCIONES DE IA CON FALLBACK
+# FUNCIONES DE IA CON FALLBACK REAL EN TIEMPO DE EJECUCIÓN
 # ---------------------------------------------------------
 def generar_texto_con_fallback(contents):
     if not API_KEY_GEMINI:
         return "⚠️ No se detectó la clave GEMINI_API_KEY en los Secrets de Streamlit."
-    try:
-        nombre_modelo = obtener_modelo_activo()
-        model = genai.GenerativeModel(nombre_modelo)
-        response = model.generate_content(contents)
-        if response.text:
-            return response.text
-    except Exception as e:
-        return f"⚠️ Error al conectar con Google Gemini: {e}"
+    
+    ultimo_error = None
+    for nombre_modelo in obtener_lista_modelos():
+        try:
+            model = genai.GenerativeModel(nombre_modelo)
+            response = model.generate_content(contents)
+            if response.text:
+                return response.text
+        except Exception as e:
+            ultimo_error = e
+            continue  # Si da error 404 con este modelo, prueba el siguiente de la lista
+
+    return f"⚠️ Error al conectar con Google Gemini: {ultimo_error}"
 
 def generar_stream_con_fallback(contents):
     if not API_KEY_GEMINI:
         yield "⚠️ No se detectó la clave GEMINI_API_KEY en los Secrets de Streamlit."
         return
-    try:
-        nombre_modelo = obtener_modelo_activo()
-        model = genai.GenerativeModel(nombre_modelo)
-        response = model.generate_content(contents, stream=True)
-        exito = False
-        for chunk in response:
-            if chunk.text:
-                exito = True
-                yield chunk.text
-        if exito:
-            return
-    except Exception as e:
-        yield f"⚠️ Error al conectar con Google Gemini: {e}"
+    
+    ultimo_error = None
+    for nombre_modelo in obtener_lista_modelos():
+        try:
+            model = genai.GenerativeModel(nombre_modelo)
+            response = model.generate_content(contents, stream=True)
+            exito = False
+            for chunk in response:
+                if chunk.text:
+                    exito = True
+                    yield chunk.text
+            if exito:
+                return
+        except Exception as e:
+            ultimo_error = e
+            continue  # Si da error 404 con este modelo, prueba el siguiente de la lista
+
+    yield f"⚠️ Error al conectar con Google Gemini: {ultimo_error}"
 # ---------------------------------------------------------
 # ESTILOS CSS PERSONALIZADOS
 # ---------------------------------------------------------
