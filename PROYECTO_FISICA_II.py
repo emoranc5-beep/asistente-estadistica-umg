@@ -32,57 +32,28 @@ if API_KEY_GEMINI:
 SYSTEM_PROMPT_UMG = """
 Eres el Asistente Virtual de Estadística de la UMG (Universidad Mariano Gálvez de Guatemala).
 
-REGLAS DE ORO OBLIGATORIAS:
-1. Tu respuesta DEBE COMENZAR INMEDIATAMENTE con el saludo o respuesta al estudiante (Ejemplo: "¡Hola! Es un gusto saludarte...").
-2. ESTÁ ESTRICTAMENTE PROHIBIDO escribir análisis de contexto, borradores ("Draft 1", "Draft 2"), etiquetas como "* Definition:", "* Types:", "* Greeting:", "* Concept:", o validaciones en inglés ("Spanish only? Yes").
-3. Responde ÚNICA Y EXCLUSIVAMENTE la explicación final estructurada en español claro, didáctico y cercano.
+REGLA ABSOLUTA DE SALIDA:
+- Inicia directamente saludando al estudiante en español (ejemplo: "¡Hola! Es un gusto saludarte...").
+- NUNCA generes títulos, etiquetas de plantilla (* Definition:, * Types:), secciones en inglés, ni texto de planificación o borradores (Draft 1, Draft 2).
+- Explica de forma clara, directa, didáctica y cercana.
 """
 
-MODELOS_RESPALDO = [
-    "gemini-1.5-flash",
-    "gemini-1.5-pro",
-    "models/gemini-1.5-flash",
-    "models/gemini-1.5-pro"
-]
-
-def obtener_lista_modelos():
-    modelos_probar = []
-    try:
-        for m in genai.list_models():
-            if 'generateContent' in m.supported_generation_methods:
-                modelos_probar.append(m.name)
-    except Exception:
-        pass
+def limpiar_texto_ia(texto):
+    """Filtra y elimina rastros de planificación o borrador si la IA los genera."""
+    lineas = texto.split("\n")
+    lineas_limpias = []
+    ignorar = False
     
-    for m in MODELOS_RESPALDO:
-        if m not in modelos_probar:
-            modelos_probar.append(m)
-            
-    return modelos_probar
-
-# ---------------------------------------------------------
-# FUNCIONES DE IA CON CONTROL RIGUROSO DE SALIDA
-# ---------------------------------------------------------
-def generar_texto_con_fallback(contents):
-    if not API_KEY_GEMINI:
-        return "⚠️ No se detectó la clave GEMINI_API_KEY en los Secrets de Streamlit."
-    
-    ultimo_error = None
-    for nombre_modelo in obtener_lista_modelos():
-        try:
-            model = genai.GenerativeModel(
-                nombre_modelo,
-                system_instruction=SYSTEM_PROMPT_UMG,
-                generation_config={"temperature": 0.1}
-            )
-            response = model.generate_content(contents)
-            if response.text:
-                return response.text
-        except Exception as e:
-            ultimo_error = e
+    for linea in lineas:
+        l_lower = linea.lower().strip()
+        # Si detecta inicio de borrador o metatexto en inglés, omite la línea
+        if any(patron in l_lower for patron in ["draft 1", "draft 2", "draft 3", "* user persona", "* constraints:", "spanish only?"]):
             continue
-
-    return f"⚠️ Error al conectar con Google Gemini: {ultimo_error}"
+        if l_lower.startswith("* definition:") or l_lower.startswith("* types:") or l_lower.startswith("* greeting:"):
+            continue
+        lineas_limpias.append(linea)
+        
+    return "\n".join(lineas_limpias)
 
 def generar_stream_con_fallback(contents):
     if not API_KEY_GEMINI:
@@ -95,14 +66,19 @@ def generar_stream_con_fallback(contents):
             model = genai.GenerativeModel(
                 nombre_modelo,
                 system_instruction=SYSTEM_PROMPT_UMG,
-                generation_config={"temperature": 0.1}
+                generation_config={"temperature": 0.0}  # Determinismo máximo
             )
             response = model.generate_content(contents, stream=True)
             exito = False
+            buffer_texto = ""
             for chunk in response:
                 if chunk.text:
                     exito = True
-                    yield chunk.text
+                    buffer_texto += chunk.text
+                    # Emitir solo si no contiene etiquetas de planificación
+                    texto_filtrado = limpiar_texto_ia(chunk.text)
+                    if texto_filtrado:
+                        yield texto_filtrado
             if exito:
                 return
         except Exception as e:
