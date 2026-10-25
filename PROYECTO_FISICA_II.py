@@ -5,6 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from scipy import stats
 import random
+import re
 import google.generativeai as genai
 
 # ---------------------------------------------------------
@@ -28,17 +29,13 @@ else:
 if API_KEY_GEMINI:
     genai.configure(api_key=API_KEY_GEMINI)
 
-# PROMPT DEL SISTEMA BLINDADO
-SYSTEM_PROMPT_UMG = """
-Eres el Asistente Virtual de Estadística de la UMG (Universidad Mariano Gálvez de Guatemala).
+# SYSTEM PROMPT SIMPLE Y POSITIVO (SIN REGLAS NEGATIVAS QUE CONTAMINEN LA SALIDA)
+SYSTEM_PROMPT_UMG = (
+    "Eres el Asistente Virtual de Estadística de la Universidad Mariano Gálvez de Guatemala (UMG). "
+    "Responde siempre al estudiante en español de forma clara, directa, amable y didáctica, "
+    "explicando los conceptos de estadística paso a paso."
+)
 
-REGLA ABSOLUTA DE SALIDA:
-- Inicia directamente saludando al estudiante en español (ejemplo: "¡Hola! Es un gusto saludarte...").
-- NUNCA generes títulos, etiquetas de plantilla (* Definition:, * Types:), secciones en inglés, ni texto de planificación o borradores (Draft 1, Draft 2).
-- Explica de forma clara, directa, didáctica y cercana al estudiante.
-"""
-
-# Lista de respaldo de modelos
 MODELOS_RESPALDO = [
     "gemini-1.5-flash",
     "gemini-1.5-pro",
@@ -62,23 +59,33 @@ def obtener_lista_modelos():
             
     return modelos_probar
 
-def limpiar_texto_ia(texto):
-    """Filtra y elimina rastros de planificación o borrador si la IA los intenta imprimir."""
+def sanear_respuesta_ia(texto):
+    """Elimina metatexto, borradores o etiquetas de verificación si la IA intenta mostrarlas."""
+    if not texto:
+        return ""
+    
     lineas = texto.split("\n")
     lineas_limpias = []
     
+    patrones_meta = [
+        "user question", "persona:", "constraints:", "check rule",
+        "draft 1", "draft 2", "draft 3", "greeting:", "definition:",
+        "types:", "example:", "spanish only", "self-correction"
+    ]
+    
     for linea in lineas:
-        l_lower = linea.lower().strip()
-        if any(patron in l_lower for patron in ["draft 1", "draft 2", "draft 3", "* user persona", "* constraints:", "spanish only?"]):
-            continue
-        if l_lower.startswith("* definition:") or l_lower.startswith("* types:") or l_lower.startswith("* greeting:"):
+        l_low = linea.lower().strip()
+        if any(p in l_low for p in patrones_meta):
+            # Si la línea tiene contenido útil tras la etiqueta (ej: "- Greeting: ¡Hola!"), extraemos solo el texto real
+            if ":" in linea and ("¡hola" in l_low or "hola" in l_low or "la moda" in l_low):
+                lineas_limpias.append(linea.split(":", 1)[1].strip())
             continue
         lineas_limpias.append(linea)
         
-    return "\n".join(lineas_limpias)
+    return "\n".join(lineas_limpias).strip()
 
 # ---------------------------------------------------------
-# FUNCIONES DE IA CON FALLBACK Y CONTROL DE SALIDA
+# FUNCIONES DE IA CON FALLBACK Y SANITIZACIÓN
 # ---------------------------------------------------------
 def generar_texto_con_fallback(contents):
     if not API_KEY_GEMINI:
@@ -90,11 +97,11 @@ def generar_texto_con_fallback(contents):
             model = genai.GenerativeModel(
                 nombre_modelo,
                 system_instruction=SYSTEM_PROMPT_UMG,
-                generation_config={"temperature": 0.0}
+                generation_config={"temperature": 0.2}
             )
             response = model.generate_content(contents)
             if response.text:
-                return limpiar_texto_ia(response.text)
+                return sanear_respuesta_ia(response.text)
         except Exception as e:
             ultimo_error = e
             continue
@@ -112,18 +119,14 @@ def generar_stream_con_fallback(contents):
             model = genai.GenerativeModel(
                 nombre_modelo,
                 system_instruction=SYSTEM_PROMPT_UMG,
-                generation_config={"temperature": 0.0}
+                generation_config={"temperature": 0.2}
             )
-            response = model.generate_content(contents, stream=True)
-            exito = False
-            for chunk in response:
-                if chunk.text:
-                    exito = True
-                    texto_filtrado = limpiar_texto_ia(chunk.text)
-                    if texto_filtrado:
-                        yield texto_filtrado
-            if exito:
-                return
+            response = model.generate_content(contents)
+            if response.text:
+                texto_limpio = sanear_respuesta_ia(response.text)
+                if texto_limpio:
+                    yield texto_limpio
+                    return
         except Exception as e:
             ultimo_error = e
             continue
