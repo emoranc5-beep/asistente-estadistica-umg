@@ -29,8 +29,7 @@ else:
 if API_KEY_GEMINI:
     genai.configure(api_key=API_KEY_GEMINI)
 
-# SYSTEM PROMPT MINIMALISTA (PROMPT CORTO EVITA PENSAMIENTO EN VOZ ALTA)
-SYSTEM_PROMPT_UMG = "Eres el Asistente Virtual de Estadística de la UMG. Responde directamente en español al estudiante de forma clara y didáctica."
+SYSTEM_PROMPT_UMG = "Eres el Asistente Virtual de Estadística de la UMG. Responde al estudiante en español de forma clara, directa y didáctica."
 
 MODELOS_RESPALDO = [
     "gemini-1.5-flash",
@@ -55,34 +54,25 @@ def obtener_lista_modelos():
             
     return modelos_probar
 
-def sanear_respuesta_ia(texto):
-    """Elimina al 100% cualquier borrador o metatexto en inglés previo a la respuesta."""
+def limpiar_respuesta_definitiva(texto):
+    """Elimina automáticamente el borrador en inglés y el cuadro de verificación ('* Direct? Yes')."""
     if not texto:
         return ""
     
-    # 1. Si la IA imprime metatexto antes de responder, recortamos directamente desde ¡Hola! o Hola
-    match = re.search(r'(¡?Hola\b.*)', texto, re.DOTALL | re.IGNORECASE)
-    if match:
-        texto = match.group(1)
-        
-    # 2. Filtro secundario para eliminar líneas sueltas de metadatos si no hay saludo
-    lineas = texto.split("\n")
-    lineas_limpias = []
+    # 1. Si la IA incluye el cuadro de verificación (* Direct? Yes / * UMG Persona? Yes), cortar todo lo anterior
+    if re.search(r'\*\s*(?:UMG Persona|Clear/Didactic|Spanish|Direct)\?\s*Yes', texto, re.IGNORECASE):
+        partes = re.split(r'\*\s*(?:UMG Persona|Clear/Didactic|Spanish|Direct)\?\s*Yes\.?', texto, flags=re.IGNORECASE)
+        texto = partes[-1]  # Tomamos solo lo que está DESPUÉS del cuadro de verificación
+
+    # 2. Si quedaron múltiples saludos (¡Hola!), tomar únicamente el último que corresponde a la respuesta real
+    coincidencias = list(re.finditer(r'(¡?Hola\b.*)', texto, re.DOTALL | re.IGNORECASE))
+    if coincidencias:
+        texto = coincidencias[-1].group(1)
+
+    # 3. Eliminar etiquetas sueltas de metadatos si sobrevivió alguna
+    texto = re.sub(r'\*\s*(?:Definition|Example|Types|Note on usage):\s*', '', texto, flags=re.IGNORECASE)
     
-    patrones_basura = [
-        r'^\s*[-*]\s*(user|role|tone|language|context|constraints?|check|draft|definition|types|example|greeting|closing):',
-        r'^\s*(user asks|persona:|constraints:|check rule|draft \d|spanish only|self-correction)',
-        r'^\s*[-*]\s*ensure\b',
-        r'^\s*[-*]\s*use formatting\b'
-    ]
-    
-    for linea in lineas:
-        l_low = linea.lower().strip()
-        if any(re.search(p, l_low) for p in patrones_basura):
-            continue
-        lineas_limpias.append(linea)
-        
-    return "\n".join(lineas_limpias).strip()
+    return texto.strip()
 
 # ---------------------------------------------------------
 # FUNCIONES DE IA CON FILTRADO ESTRICTO
@@ -101,7 +91,7 @@ def generar_texto_con_fallback(contents):
             )
             response = model.generate_content(contents)
             if response.text:
-                return sanear_respuesta_ia(response.text)
+                return limpiar_respuesta_definitiva(response.text)
         except Exception as e:
             ultimo_error = e
             continue
@@ -123,7 +113,7 @@ def generar_stream_con_fallback(contents):
             )
             response = model.generate_content(contents)
             if response.text:
-                texto_limpio = sanear_respuesta_ia(response.text)
+                texto_limpio = limpiar_respuesta_definitiva(response.text)
                 if texto_limpio:
                     yield texto_limpio
                     return
