@@ -1077,7 +1077,7 @@ elif opcion == "📚 5. Estudio Guiado":
     # ---------------------------------------------------------
     # SECCIÓN CHAT INTERACTIVO CON IA
     # ---------------------------------------------------------
- st.markdown("---")
+st.markdown("---")
     st.subheader("💬 Chat Interactivo con IA")
     st.write("¿Tienes alguna duda sobre la lección? Pregúntale directamente al Asistente Virtual:")
 
@@ -1089,7 +1089,6 @@ elif opcion == "📚 5. Estudio Guiado":
 
         with st.chat_message("assistant"):
             try:
-                # Pasa 'texto_usuario' directamente a la función de la IA
                 st.write_stream(generar_stream_con_fallback(texto_usuario))
             except Exception as e:
                 st.error(f"Error al procesar con la IA: {e}")
