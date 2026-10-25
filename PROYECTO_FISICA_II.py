@@ -112,86 +112,73 @@ def generar_stream_con_fallback(contents):
     yield f"⚠️ Error al conectar con Google Gemini: {ultimo_error}"
 
 # ---------------------------------------------------------
-# ESTILOS CSS PERSONALIZADOS
+# ESTILOS CSS PERSONALIZADOS (SIN BANNER SUPERIOR)
 # ---------------------------------------------------------
 st.markdown("""
 <style>
-    div.block-container { padding-top: 195px !important; } 
-    header[data-testid="stHeader"] { z-index: 100 !important; }
+    div.block-container { padding-top: 2rem !important; } 
     
-    .fixed-header {
-        position: fixed; top: 2.8rem; left: 21.5rem; right: 1.8rem; z-index: 9999;
-        background-color: #183059;
-        background-image: linear-gradient(135deg, rgba(24, 48, 89, 0.98) 0%, rgba(43, 82, 152, 0.98) 100%);
-        padding: 0.5rem 1.5rem 0.6rem 1.5rem; border-radius: 10px; color: white;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.25); display: flex; flex-direction: column; gap: 4px;
-        border: 1px solid rgba(255,255,255,0.25);
+    .sidebar-header-card { 
+        background: linear-gradient(135deg, #183059 0%, #2a5298 100%); 
+        padding: 1rem; border-radius: 10px; color: white; text-align: center;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.15); margin-bottom: 1rem;
+        border: 1px solid rgba(255,255,255,0.2);
     }
-    [data-testid="stSidebar"][aria-expanded="false"] ~ .main .fixed-header { left: 5rem !important; }
-    
-    .facultad-title {
-        width: 100%; text-align: center; color: #fef08a; font-size: 0.85rem; font-weight: 700; 
-        letter-spacing: 1px; text-transform: uppercase; border-bottom: 1px solid rgba(255,255,255,0.2); 
-        padding-bottom: 4px; margin-bottom: 2px;
+    .sidebar-facultad {
+        color: #fef08a; font-size: 0.72rem; font-weight: 700; 
+        text-transform: uppercase; border-bottom: 1px solid rgba(255,255,255,0.2); 
+        padding-bottom: 4px; margin-bottom: 6px; letter-spacing: 0.5px;
+    }
+    .sidebar-title {
+        color: #ffffff; font-size: 1.15rem; font-weight: 900; 
+        margin: 4px 0 2px 0; text-transform: uppercase; line-height: 1.2;
+    }
+    .sidebar-sub {
+        color: #e0e7ff; font-size: 0.8rem; margin: 0; font-weight: 500;
+    }
+    .sidebar-sede {
+        color: #cbd5e1; font-size: 0.75rem; font-style: italic; margin-bottom: 8px;
+    }
+    .sidebar-curso {
+        background: rgba(255, 255, 255, 0.15); padding: 4px 8px; border-radius: 6px;
+        font-size: 0.82rem; font-weight: bold; color: #ffffff; margin: 6px 0;
+    }
+    .sidebar-integrantes {
+        font-size: 0.78rem; text-align: left; background: rgba(0,0,0,0.2);
+        padding: 8px; border-radius: 6px; margin-top: 6px; color: #f8fafc;
     }
     
-    .header-content { display: flex; align-items: center; justify-content: space-between; width: 100%; }
-    .header-text h1 { color: #ffffff !important; font-size: 1.35rem !important; font-weight: 900 !important; margin: 0; padding: 0; text-transform: uppercase; text-shadow: 1px 2px 4px rgba(0,0,0,0.4); }
-    .header-text h3 { color: #e0e7ff !important; font-size: 0.95rem !important; font-weight: 500 !important; margin-top: 2px; margin-bottom: 0;}
-    .header-text h4 { color: #cbd5e1 !important; font-size: 0.85rem !important; font-weight: 400 !important; margin-top: 0px; margin-bottom: 0; font-style: italic;}
-    
-    .brand-container { display: flex; align-items: center; gap: 1.2rem; }
-    .miumg-cursive { font-family: 'Brush Script MT', cursive; font-size: 3.5rem; font-style: italic; font-weight: bold; color: #ffffff; text-shadow: 2px 2px 5px rgba(0,0,0,0.45); line-height: 1; white-space: nowrap; }
-    .lema-box { border-left: 2px solid rgba(255, 255, 255, 0.45); padding-left: 0.8rem; }
-    .lema-linea { font-size: 0.8rem; font-style: italic; font-weight: 500; margin: 0; white-space: nowrap; }
-    .lema-cita { font-size: 0.75rem; font-weight: 800; color: #fef08a; margin-top: 2px; }
-    
-    .sidebar-info-card { 
-        background: linear-gradient(180deg, #f0f4f9 0%, #e2e8f0 100%); 
-        border-left: 4px solid #2a5298; padding: 0.8rem; border-radius: 8px; 
-        margin-bottom: 0.2rem; font-size: 0.85rem; color: #1e293b; 
+    .sidebar-footer-card {
+        background: linear-gradient(135deg, #183059 0%, #2a5298 100%);
+        padding: 0.9rem; border-radius: 10px; color: white; text-align: center;
+        margin-top: 1.2rem; border: 1px solid rgba(255,255,255,0.2);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.15);
     }
+    .miumg-cursive-sidebar { 
+        font-family: 'Brush Script MT', cursive; font-size: 2.5rem; 
+        font-style: italic; font-weight: bold; color: #ffffff; 
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.4); line-height: 1; margin-bottom: 4px;
+    }
+    .lema-linea-sidebar { font-size: 0.75rem; font-style: italic; margin: 0; color: #e0e7ff; }
+    .lema-cita-sidebar { font-size: 0.75rem; font-weight: 800; color: #fef08a; margin-top: 3px; }
 </style>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# BANNER PRINCIPAL FIJO
-# ---------------------------------------------------------
-st.markdown("""
-<div class="fixed-header">
-    <div class="facultad-title">
-        Facultad de Ingeniería en Sistemas de la Información y Ciencias de la Computación
-    </div>
-    <div class="header-content">
-        <div class="header-text">
-            <h1>ASISTENTE VIRTUAL ESTADISTICA</h1>
-            <h3>Universidad Mariano Gálvez de Guatemala</h3>
-            <h4>Santa Lucía Cotzumalguapa</h4>
-        </div>
-        <div class="brand-container">
-            <span class="miumg-cursive">MI UMG</span>
-            <div class="lema-box">
-                <p class="lema-linea">"Y conoceréis la verdad</p>
-                <p class="lema-linea">y la verdad os hará libres"</p>
-                <div class="lema-cita">Juan 8:32</div>
-            </div>
-        </div>
-    </div>
-</div>
-""", unsafe_allow_html=True)
-
-# ---------------------------------------------------------
-# BARRA LATERAL (INFORMACIÓN DE LA CÁTEDRA)
+# BARRA LATERAL (ENCABEZADO, INTEGRANTES Y NAVEGACIÓN)
 # ---------------------------------------------------------
 st.sidebar.markdown("""
-<div class="sidebar-info-card">
-    <p style="font-size: 0.9rem; text-align: center; margin-bottom: 4px;"><b>Física II | Sección: A</b></p>
-    <hr style="margin: 6px 0; border: 0; border-top: 1px solid #cbd5e1;">
-    <h4 style="color: #1e3c72; margin-top: 0.2rem; margin-bottom: 0.4rem; font-size: 0.9rem;">👨‍💻 Integrantes</h4>
-    <p style="margin-bottom: 4px;">• <b>Esdras Eliezer Morán Castañeda</b><br>
-    <code>2990-19-7648</code></p>
-    <p style="margin-bottom: 0;">• <b>Emerson Anibal Chach Poz</b><br>
-    <code>2990-24-2093</code></p>
+<div class="sidebar-header-card">
+    <div class="sidebar-facultad">Facultad de Ingeniería en Sistemas</div>
+    <div class="sidebar-title">ASISTENTE VIRTUAL ESTADÍSTICA</div>
+    <div class="sidebar-sub">Universidad Mariano Gálvez</div>
+    <div class="sidebar-sede">Santa Lucía Cotzumalguapa</div>
+    <div class="sidebar-curso">📘 Física II | Sección: A</div>
+    <div class="sidebar-integrantes">
+        <b>👨‍💻 Integrantes:</b><br>
+        • Esdras Morán (<code>2990-19-7648</code>)<br>
+        • Emerson Chach (<code>2990-24-2093</code>)
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -208,6 +195,16 @@ opcion = st.sidebar.radio(
     ],
     label_visibility="collapsed"
 )
+
+# Tarjeta inferior en la barra lateral con la marca UMG y el lema
+st.sidebar.markdown("""
+<div class="sidebar-footer-card">
+    <div class="miumg-cursive-sidebar">MI UMG</div>
+    <p class="lema-linea-sidebar">"Y conoceréis la verdad</p>
+    <p class="lema-linea-sidebar">y la verdad os hará libres"</p>
+    <div class="lema-cita-sidebar">Juan 8:32</div>
+</div>
+""", unsafe_allow_html=True)
 
 # =========================================================
 # INICIO
