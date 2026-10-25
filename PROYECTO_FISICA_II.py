@@ -18,7 +18,7 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# CONFIGURACIÓN DE GROQ Y MODELOS GRATUITOS
+# CONFIGURACIÓN DE GEMINI Y MODELOS
 # ---------------------------------------------------------
 if "GEMINI_API_KEY" in st.secrets and st.secrets["GEMINI_API_KEY"]:
     API_KEY_GEMINI = st.secrets["GEMINI_API_KEY"]
@@ -27,6 +27,15 @@ else:
 
 if API_KEY_GEMINI:
     genai.configure(api_key=API_KEY_GEMINI)
+
+# PROMPT DEL SISTEMA PARA MANTENER LA PERSONA UMG Y ESPAÑOL
+SYSTEM_PROMPT_UMG = """
+Eres el Asistente Virtual de Estadística de la UMG (Universidad Mariano Gálvez de Guatemala).
+Instrucciones estrictas:
+1. Responde ÚNICA Y EXCLUSIVAMENTE en español.
+2. NO muestres tu razonamiento interno, ni notas de diseño, ni texto en inglés como 'User Persona', 'Goal' o 'Tone Check'.
+3. Ve directo a la respuesta de forma clara, didáctica, profesional y cercana al estudiante.
+"""
 
 # Modelos estándar de respaldo ordenados por prioridad
 MODELOS_RESPALDO = [
@@ -54,7 +63,7 @@ def obtener_lista_modelos():
     return modelos_probar
 
 # ---------------------------------------------------------
-# FUNCIONES DE IA CON FALLBACK REAL EN TIEMPO DE EJECUCIÓN
+# FUNCIONES DE IA CON FALLBACK Y SYSTEM INSTRUCTION
 # ---------------------------------------------------------
 def generar_texto_con_fallback(contents):
     if not API_KEY_GEMINI:
@@ -63,13 +72,16 @@ def generar_texto_con_fallback(contents):
     ultimo_error = None
     for nombre_modelo in obtener_lista_modelos():
         try:
-            model = genai.GenerativeModel(nombre_modelo)
+            model = genai.GenerativeModel(
+                nombre_modelo,
+                system_instruction=SYSTEM_PROMPT_UMG
+            )
             response = model.generate_content(contents)
             if response.text:
                 return response.text
         except Exception as e:
             ultimo_error = e
-            continue  # Si da error 404 con este modelo, prueba el siguiente de la lista
+            continue
 
     return f"⚠️ Error al conectar con Google Gemini: {ultimo_error}"
 
@@ -81,7 +93,10 @@ def generar_stream_con_fallback(contents):
     ultimo_error = None
     for nombre_modelo in obtener_lista_modelos():
         try:
-            model = genai.GenerativeModel(nombre_modelo)
+            model = genai.GenerativeModel(
+                nombre_modelo,
+                system_instruction=SYSTEM_PROMPT_UMG
+            )
             response = model.generate_content(contents, stream=True)
             exito = False
             for chunk in response:
@@ -92,9 +107,10 @@ def generar_stream_con_fallback(contents):
                 return
         except Exception as e:
             ultimo_error = e
-            continue  # Si da error 404 con este modelo, prueba el siguiente de la lista
+            continue
 
     yield f"⚠️ Error al conectar con Google Gemini: {ultimo_error}"
+
 # ---------------------------------------------------------
 # ESTILOS CSS PERSONALIZADOS
 # ---------------------------------------------------------
@@ -540,9 +556,12 @@ elif opcion == "🎲 3. Probabilidad y Normal":
     )
     
     c1, c2, c3 = st.columns(3)
-    with c1: mu_in = st.text_input("Media (μ):", placeholder="Ej: 50", key="mu_m3")
-    with c2: sig_in = st.text_input("Desviación (σ):", placeholder="Ej: 5", key="sig_m3")
-    with c3: x_in = st.text_input("Valor X a evaluar:", placeholder="Ej: 55", key="x_m3")
+    with c1: 
+        mu_in = st.text_input("Media (μ):", placeholder="Ej: 50", key="mu_m3")
+    with c2: 
+        sig_in = st.text_input("Desviación (σ):", placeholder="Ej: 5", key="sig_m3")
+    with c3: 
+        x_in = st.text_input("Valor X a evaluar:", placeholder="Ej: 55", key="x_m3")
 
     if st.button("🚀 Calcular Probabilidad y Graficar", key="btn_user_3"):
         if not mu_in or not sig_in or not x_in:
@@ -663,8 +682,10 @@ elif opcion == "📉 4. Regresión Lineal":
     )
     
     cx, cy = st.columns(2)
-    with cx: x_str = st.text_input("Valores X (separados por comas):", placeholder="Ej: 1, 2, 3, 4, 5", key="x_m4")
-    with cy: y_str = st.text_input("Valores Y (separados por comas):", placeholder="Ej: 2.1, 3.9, 6.1, 8.2, 9.8", key="y_m4")
+    with cx: 
+        x_str = st.text_input("Valores X (separados por comas):", placeholder="Ej: 1, 2, 3, 4, 5", key="x_m4")
+    with cy: 
+        y_str = st.text_input("Valores Y (separados por comas):", placeholder="Ej: 2.1, 3.9, 6.1, 8.2, 9.8", key="y_m4")
 
     if st.button("🚀 Calcular Regresión y Graficar", key="btn_user_4"):
         if not x_str or not y_str:
@@ -715,7 +736,7 @@ elif opcion == "📉 4. Regresión Lineal":
 # =========================================================
 elif opcion == "📚 5. Estudio Guiado":
     st.title("📚 Módulo de Estudio Guiado y Asistente IA")
-    st.write("Selecciona un subtema para estudiar su teoría, analizar ejemplos prácticos con gráficas, resolver un Quiz evaluativo y hacer preguntas a la IA.")
+    st.write("Selecciona un subtema para estudiar su teoría, analizar ejemplos prácticos, resolver un Quiz evaluativo y realizar consultas a la IA.")
 
     # ---------------------------------------------------------
     # ESTRUCTURA DE LECCIONES TEÓRICAS Y FÓRMULAS LATEX
@@ -757,34 +778,34 @@ elif opcion == "📚 5. Estudio Guiado":
             "formulas": [r"f(x) = \frac{1}{\sigma \sqrt{2\pi}} e^{-\frac{1}{2}\left(\frac{x-\mu}{\sigma}\right)^2}"]
         },
         "3.2 Puntuación Z y Estandarización de Variables": {
-            "historia": "La estandarización unificó el uso de tablas universales para cualquier distribución normal $N(\mu, \sigma)$ al convertirla a la forma estándar $N(0, 1)$.",
-            "teoria": "La puntuación Z mide a cuántas desviaciones estándar se ubica una observación concreta $X$ por encima o por debajo de la media poblacional $\mu$.",
+            "historia": "La estandarización unificó el uso de tablas universales para cualquier distribución normal N(μ, σ) al convertirla a la forma estándar N(0, 1).",
+            "teoria": "La puntuación Z mide a cuántas desviaciones estándar se ubica una observación concreta X por encima o por debajo de la media poblacional μ.",
             "formulas": [r"Z = \frac{X - \mu}{\sigma}"]
         },
         "3.3 Cálculo de Probabilidades Acumuladas P(X ≤ x)": {
             "historia": "Permitió calcular áreas bajo la curva normal estándar reduciendo la integración matemática compleja al uso de tablas tipificadas acumuladas.",
-            "teoria": "Representa la proporción acumulada de la población cuya variable es menor o igual a un determinado límite $x$.",
+            "teoria": "Representa la proporción acumulada de la población cuya variable es menor o igual a un determinado límite x.",
             "formulas": [r"P(X \le x) = P\left(Z \le \frac{x - \mu}{\sigma}\right) = \Phi(Z)"]
         },
         "4.1 Diagrama de Dispersión y Recta de Ajuste": {
             "historia": "Sir Francis Galton derivó el concepto de regresión lineal en el siglo XIX al estudiar la herencia genética de estaturas entre padres e hijos.",
-            "teoria": "Modela numéricamente la tendencia lineal entre una variable independiente $X$ y una dependiente $Y$ mediante el método de mínimos cuadrados ordinarios.",
+            "teoria": "Modela numéricamente la tendencia lineal entre una variable independiente X y una dependiente Y mediante el método de mínimos cuadrados ordinarios.",
             "formulas": [r"\hat{Y} = a + bX", r"b = \frac{n\sum XY - \sum X \sum Y}{n\sum X^2 - (\sum X)^2}"]
         },
         "4.2 Coeficiente de Correlación de Pearson (r)": {
             "historia": "Desarrollado por Karl Pearson a finales del siglo XIX como la medida estándar para graduar la intensidad de relaciones lineales.",
-            "teoria": "Toma valores entre $-1$ y $+1$. Cerca de $+1$ indica relación positiva fuerte; cerca de $-1$ indica relación negativa; cerca de $0$ indica ausencia de asociación lineal.",
+            "teoria": "Toma valores entre -1 y +1. Cerca de +1 indica relación positiva fuerte; cerca de -1 indica relación negativa; cerca de 0 indica ausencia de asociación lineal.",
             "formulas": [r"r = \frac{n\sum XY - \sum X \sum Y}{\sqrt{[n\sum X^2 - (\sum X)^2][n\sum Y^2 - (\sum Y)^2]}}"]
         },
         "4.3 Coeficiente de Determinación (R²)": {
             "historia": "Surgió del trabajo de Sewall Wright en 1921 para determinar la proporción de variabilidad explicada por variables explicativas.",
-            "teoria": "Indica qué porcentaje de la variabilidad total de la variable dependiente $Y$ es explicado por la recta de regresión ajustada.",
+            "teoria": "Indica qué porcentaje de la variabilidad total de la variable dependiente Y es explicado por la recta de regresión ajustada.",
             "formulas": [r"R^2 = (r)^2 \times 100\%"]
         }
     }
 
     # ---------------------------------------------------------
-    # QUIZZES DE 5 PREGUNTAS POR SUBTEMA
+    # QUIZZES DE PREGUNTAS POR SUBTEMA
     # ---------------------------------------------------------
     QUIZZES = {
         "1.1 Medidas de Tendencia Central (Media, Mediana, Moda)": [
@@ -796,10 +817,10 @@ elif opcion == "📚 5. Estudio Guiado":
         ],
         "1.2 Medidas de Dispersión (Varianza, Desviación Estándar)": [
             {"p": "¿En qué unidades de medida se expresa la Desviación Estándar (s)?", "o": ["Unidades al cuadrado", "En las mismas unidades de los datos originales", "Es una magnitud adimensional"], "r": 1, "exp": "Al extraer la raíz cuadrada a la varianza, se recupera la unidad física original."},
-            {"p": "Si todos los elementos de una muestra numéricos son idénticos a 15, ¿cuánto vale la varianza?", "o": ["15", "1", "0"], "r": 2, "exp": "Si no hay variación entre los datos y la media, la dispersión es totalmente nula (0)."},
+            {"p": "Si todos los elementos de una muestra son idénticos a 15, ¿cuánto vale la varianza?", "o": ["15", "1", "0"], "r": 2, "exp": "Si no hay variación entre los datos y la media, la dispersión es totalmente nula (0)."},
             {"p": "Ejercicio Práctico: Para los datos [2, 4, 6] con media x̄ = 4, calcule la Varianza Muestral (s²).", "o": ["2.00", "4.00", "8.00"], "r": 1, "exp": "s² = [(2-4)² + (4-4)² + (6-4)²] / (3-1) = [4 + 0 + 4] / 2 = 8 / 2 = 4.00."},
             {"p": "Ejercicio Práctico: Si la varianza muestral es s² = 16, ¿cuál es la desviación estándar (s)?", "o": ["2.00", "4.00", "8.00"], "r": 1, "exp": "s = √16 = 4.00."},
-            {"p": "¿Por qué se divide entre (n - 1) y no entre (n) al calcular la varianza muestral?", "o": ["Para corregir el sesgo de estimación poblacional", "Por convención matemática aleatoria", "Para aumentar el tamaño de la muestra"], "r": 0, "exp": "El divisor (n - 1) proporciona un estimador insesgado de la varianza poblacional σ²."}
+            {"p": "¿Por qué se divide entre (n - 1) y no entre (n) al calcular la varianza muestral?", "o": ["Para corregir el sesgo de estimación poblacional", "Por convención matemática aleatoria", "Para aumentar el tamaño de la muestra"], "r": 0, "exp": "El divisor (n - 1) proporciona un estimador insesgado de la varianza poblacional."}
         ],
         "1.3 Error Experimental y Manejo de Unidades en Física": [
             {"p": "¿Cómo se define formalmente el Error Absoluto en una medición física?", "o": ["Diferencia absoluta entre valor medido y valor real", "Proporción porcentual del instrumento", "Incertidumbre del fabricante dividida entre dos"], "r": 0, "exp": "Error Absoluto = |Valor Medido - Valor Real|."},
@@ -1077,7 +1098,7 @@ elif opcion == "📚 5. Estudio Guiado":
     # ---------------------------------------------------------
     # SECCIÓN CHAT INTERACTIVO CON IA
     # ---------------------------------------------------------
-st.markdown("---")
+    st.markdown("---")
     st.subheader("💬 Chat Interactivo con IA")
     st.write("¿Tienes alguna duda sobre la lección? Pregúntale directamente al Asistente Virtual:")
 
