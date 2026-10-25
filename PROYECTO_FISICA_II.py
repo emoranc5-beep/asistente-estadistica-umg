@@ -28,13 +28,14 @@ else:
 if API_KEY_GEMINI:
     genai.configure(api_key=API_KEY_GEMINI)
 
-# PROMPT DEL SISTEMA PARA MANTENER LA PERSONA UMG Y ESPAÑOL
+# PROMPT DEL SISTEMA STRICTO (EVITA BORRADORES Y PENSAMIENTO INTERNO)
 SYSTEM_PROMPT_UMG = """
 Eres el Asistente Virtual de Estadística de la UMG (Universidad Mariano Gálvez de Guatemala).
-Instrucciones estrictas:
-1. Responde ÚNICA Y EXCLUSIVAMENTE en español.
-2. NO muestres tu razonamiento interno, ni notas de diseño, ni texto en inglés como 'User Persona', 'Goal' o 'Tone Check'.
-3. Ve directo a la respuesta de forma clara, didáctica, profesional y cercana al estudiante.
+
+REGLAS OBLIGATORIAS DE SALIDA:
+1. Responde SIEMPRE Y ÚNICAMENTE en español.
+2. NUNCA imprimas tu proceso de pensamiento, borradores ("Draft 1", "Draft 2"), análisis de contexto, ni texto técnico en inglés.
+3. Genera DIRECTAMENTE la respuesta final estructurada de forma clara, amigable, didáctica y cercana al estudiante.
 """
 
 # Modelos estándar de respaldo ordenados por prioridad
@@ -55,7 +56,6 @@ def obtener_lista_modelos():
     except Exception:
         pass
     
-    # Agregar respaldos asegurando que no haya duplicados
     for m in MODELOS_RESPALDO:
         if m not in modelos_probar:
             modelos_probar.append(m)
@@ -63,7 +63,7 @@ def obtener_lista_modelos():
     return modelos_probar
 
 # ---------------------------------------------------------
-# FUNCIONES DE IA CON FALLBACK Y SYSTEM INSTRUCTION
+# FUNCIONES DE IA CON FALLBACK Y GENERATION CONFIG
 # ---------------------------------------------------------
 def generar_texto_con_fallback(contents):
     if not API_KEY_GEMINI:
@@ -74,7 +74,8 @@ def generar_texto_con_fallback(contents):
         try:
             model = genai.GenerativeModel(
                 nombre_modelo,
-                system_instruction=SYSTEM_PROMPT_UMG
+                system_instruction=SYSTEM_PROMPT_UMG,
+                generation_config={"temperature": 0.2}
             )
             response = model.generate_content(contents)
             if response.text:
@@ -95,7 +96,8 @@ def generar_stream_con_fallback(contents):
         try:
             model = genai.GenerativeModel(
                 nombre_modelo,
-                system_instruction=SYSTEM_PROMPT_UMG
+                system_instruction=SYSTEM_PROMPT_UMG,
+                generation_config={"temperature": 0.2}
             )
             response = model.generate_content(contents, stream=True)
             exito = False
@@ -110,7 +112,6 @@ def generar_stream_con_fallback(contents):
             continue
 
     yield f"⚠️ Error al conectar con Google Gemini: {ultimo_error}"
-
 # ---------------------------------------------------------
 # ESTILOS CSS PERSONALIZADOS (SIN BANNER SUPERIOR)
 # ---------------------------------------------------------
